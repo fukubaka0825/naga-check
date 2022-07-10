@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 )
 
 const (
@@ -19,12 +20,19 @@ const (
 
 const BAD_PLAY_THRETHOLD = 8500
 
+const (
+	RECOMMEND_THRETHOLD          = 5000
+	STRONGLY_RECOMMEND_THRETHOLD = 9000
+)
+
 type Result [][]StartOrAction
 
 type StartOrAction struct {
-	EndNum    int   `json:"end_num"`
-	Info      Info  `json:"info"`
-	DahaiPred []int `json:"dahai_pred"`
+	EndNum    int                 `json:"end_num"`
+	Info      Info                `json:"info"`
+	DahaiPred []float32           `json:"dahai_pred"`
+	Reach     float32             `json:"reach"`
+	Huro      map[int]map[int]int `json:"huro"`
 }
 
 type Info struct {
@@ -32,14 +40,15 @@ type Info struct {
 }
 
 type Msg struct {
-	Type      string     `json:"type"`
-	Actor     int        `json:"actor"`
-	Tehais    [][]string `json:"tehais"`
-	Kyoku     int        `json:"kyoku"`
-	Bakaze    string     `json:"bakaze"`
-	Pai       string     `json:"pai"`
-	RealDahai string     `json:"real_dahai"`
-	PredDahai string     `json:"pred_dahai"`
+	Type       string     `json:"type"`
+	Actor      int        `json:"actor"`
+	Tehais     [][]string `json:"tehais"`
+	Kyoku      int        `json:"kyoku"`
+	Bakaze     string     `json:"bakaze"`
+	Pai        string     `json:"pai"`
+	RealDahai  string     `json:"real_dahai"`
+	PredDahai  string     `json:"pred_dahai"`
+	LeftHaiNum int        `json:"left_hai_num"`
 }
 
 type TehaiMap map[int][]string
@@ -55,7 +64,18 @@ type nagaJudge struct {
 	point        float32
 	judgeCount   int
 	nagaRate     float32
-	badPlayCount int
+	BadPlayCount int
+}
+
+type nextHuroRecommend struct {
+	nextShouldHuro bool
+	rate           int
+	pattern        string
+}
+
+type nextReachRecommend struct {
+	nextShouldReach bool
+	rate            float32
 }
 
 type actorNagaMap map[int]*nagaJudge
@@ -63,7 +83,7 @@ type actorNagaMap map[int]*nagaJudge
 func (a actorNagaMap) culcNagaRate() {
 	for actor := 0; actor <= 3; actor++ {
 		a[actor].nagaRate = a[actor].point / float32(a[actor].judgeCount)
-		log.Printf("actor: %v, nagaJudgeCount: %v, point: %v,nagaRate: %v, badPlayCount: %v", actor, a[actor].judgeCount, a[actor].point, a[actor].nagaRate, a[actor].badPlayCount)
+		log.Printf("actor: %v, nagaJudgeCount: %v, point: %v,nagaRate: %v, BadPlayCount: %v", actor, a[actor].judgeCount, a[actor].point, a[actor].nagaRate, a[actor].BadPlayCount)
 	}
 }
 
@@ -90,12 +110,66 @@ func main() {
 		for actor := 0; actor <= 3; actor++ {
 			playerTehaiMap[actor] = startKyoku.Info.Msg.Tehais[actor]
 		}
+		bakaze := startKyoku.Info.Msg.Bakaze
+		kyoku := startKyoku.Info.Msg.Kyoku
 		startOrActionLeftCount--
+		nextReachRecommend := map[int]*nextReachRecommend{
+			0: {false, 0},
+			1: {false, 0},
+			2: {false, 0},
+			3: {false, 0},
+		}
+		nextHuroRecommend := map[int]*nextHuroRecommend{
+			0: {false, 0, ""},
+			1: {false, 0, ""},
+			2: {false, 0, ""},
+			3: {false, 0, ""},
+		}
 		for actionIndex := 0; startOrActionLeftCount > 0; startOrActionLeftCount-- {
 			actionIndex++
 			action := result[kyokuIndex][actionIndex]
 			actor := action.Info.Msg.Actor
+			if nextReachRecommend[actor].nextShouldReach && action.Info.Msg.Type != TYPE_REACH {
+				actorNagaMap[actor].judgeCount++
+				if nextReachRecommend[actor].rate > BAD_PLAY_THRETHOLD {
+					// 悪手を出力してみる
+					log.Printf("!!BADPLAYYYYYY 鉄Reach!! actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, reachPredRate: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, nextReachRecommend[actor].rate)
+					actorNagaMap[actor].BadPlayCount++
+				}
+				nextReachRecommend[actor].nextShouldReach = false
+				nextReachRecommend[actor].rate = 0
+			}
+			if !nextReachRecommend[actor].nextShouldReach && action.Info.Msg.Type == TYPE_REACH {
+				actorNagaMap[actor].judgeCount++
+				log.Printf("ダマ推奨 actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, reachPredRate: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, nextReachRecommend[actor].rate)
+				nextReachRecommend[actor].rate = 0
+			}
+			if nextHuroRecommend[actor].nextShouldHuro && (action.Info.Msg.Type != TYPE_PON && action.Info.Msg.Type != TYPE_CHI) {
+				actorNagaMap[actor].judgeCount++
+				if nextHuroRecommend[actor].rate > BAD_PLAY_THRETHOLD {
+					// 悪手を出力してみる
+					log.Printf("!!BADPLAYYYYYY 鉄huro!! actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v pattern: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, "huroせず", 0, action.Info.Msg.PredDahai, nextHuroRecommend[actor].rate, nextHuroRecommend[actor].pattern)
+					actorNagaMap[actor].BadPlayCount++
+				}
+				nextHuroRecommend[actor].nextShouldHuro = false
+				nextHuroRecommend[actor].rate = 0
+				nextHuroRecommend[actor].pattern = ""
+			}
+			if !nextHuroRecommend[actor].nextShouldHuro && (action.Info.Msg.Type == TYPE_PON || action.Info.Msg.Type == TYPE_CHI) {
+				actorNagaMap[actor].judgeCount++
+				log.Printf("huroしない推奨 actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, huroPredRate: %v, huroPredPattern: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, nextHuroRecommend[actor].rate, nextHuroRecommend[actor].pattern)
+
+				nextHuroRecommend[actor].nextShouldHuro = false
+				nextHuroRecommend[actor].rate = 0
+				nextHuroRecommend[actor].pattern = ""
+			}
 			if action.Info.Msg.Type == TYPE_TSUMO {
+				if action.Reach != 0 {
+					nextReachRecommend[actor].rate = action.Reach
+					if action.Reach > RECOMMEND_THRETHOLD {
+						nextReachRecommend[actor].nextShouldReach = true
+					}
+				}
 				actorNagaMap[actor].judgeCount++
 				// 手配交換
 				// playerTehaiMap.changeTehai(actor, action.Info.Msg.Pai, action.Info.Msg.RealDahai)
@@ -109,13 +183,28 @@ func main() {
 					}
 					if predDahaiNagaPredRate-realDahaiNagaPredRate > BAD_PLAY_THRETHOLD {
 						// 悪手を出力してみる
-						log.Printf("!!badPlay!! actor: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v", actor, action.Info.Msg.RealDahai, realDahaiNagaPredRate, action.Info.Msg.PredDahai, predDahaiNagaPredRate)
-						actorNagaMap[actor].badPlayCount++
+						log.Printf("!!BADPLAYYYYYY 打牌選択ミス!! actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, action.Info.Msg.RealDahai, realDahaiNagaPredRate, action.Info.Msg.PredDahai, predDahaiNagaPredRate)
+						actorNagaMap[actor].BadPlayCount++
+						actorNagaMap[actor].point = actorNagaMap[actor].point + realDahaiNagaPredRate/predDahaiNagaPredRate
+						continue
 					}
-					actorNagaMap[actor].point = actorNagaMap[actor].point + float32(realDahaiNagaPredRate/predDahaiNagaPredRate)
+					log.Printf("打廃推奨 actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, action.Info.Msg.RealDahai, realDahaiNagaPredRate, action.Info.Msg.PredDahai, predDahaiNagaPredRate)
+					actorNagaMap[actor].point = actorNagaMap[actor].point + realDahaiNagaPredRate/predDahaiNagaPredRate
 					continue
 				}
 				actorNagaMap[actor].point++
+			}
+			if action.Info.Msg.Type == TYPE_DAHAI {
+				if action.Huro != nil {
+					for huroAct := 0; huroAct <= 3; huroAct++ {
+						huroRate, huroType := getBiggestIntAndIndex([]int{action.Huro[huroAct][1], action.Huro[huroAct][2], action.Huro[huroAct][3], action.Huro[huroAct][4], action.Huro[huroAct][5]})
+						nextHuroRecommend[huroAct].rate = huroRate
+						nextHuroRecommend[huroAct].pattern = strconv.Itoa(huroType)
+						if huroRate > RECOMMEND_THRETHOLD {
+							nextHuroRecommend[huroAct].nextShouldHuro = true
+						}
+					}
+				}
 			}
 
 		}
@@ -174,4 +263,16 @@ func remove(strings []string, search string) []string {
 		result = append(result, v)
 	}
 	return result
+}
+
+func getBiggestIntAndIndex(list []int) (int, int) {
+	var biggestNumber int
+	var biggestIndex int
+	for i, v := range list {
+		if v > biggestNumber {
+			biggestNumber = v
+			biggestIndex = i + 1
+		}
+	}
+	return biggestNumber, biggestIndex
 }
