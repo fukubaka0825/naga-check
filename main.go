@@ -108,10 +108,8 @@ func main() {
 						continue
 					}
 					if predDahaiNagaPredRate-realDahaiNagaPredRate > BAD_PLAY_THRETHOLD {
-						if actor == 2 {
-							// 悪手を出力してみる
-							log.Printf("!!badPlay!! actor: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v", actor, action.Info.Msg.RealDahai, realDahaiNagaPredRate, action.Info.Msg.PredDahai, predDahaiNagaPredRate)
-						}
+						// 悪手を出力してみる
+						log.Printf("!!badPlay!! actor: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v", actor, action.Info.Msg.RealDahai, realDahaiNagaPredRate, action.Info.Msg.PredDahai, predDahaiNagaPredRate)
 						actorNagaMap[actor].badPlayCount++
 					}
 					actorNagaMap[actor].point = actorNagaMap[actor].point + float32(realDahaiNagaPredRate/predDahaiNagaPredRate)
