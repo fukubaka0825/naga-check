@@ -89,7 +89,7 @@ func (a actorNagaMap) culcNagaValue() {
 			minusSum += v
 		}
 		nagaValue := 100 - minusSum/float32(len(a[actor].minusValueList)*100)
-		log.Printf("actor: %v,nagaJudgeCount: %v,matchCount: %v,unMatchCount: %v,nagaValue: %v, BadPlayCount: %v", actor, a[actor].judgeCount, a[actor].matchCount, a[actor].unMatchCount, nagaValue, a[actor].BadPlayCount)
+		log.Printf("actor: %v,nagaJudgeCount: %v,matchCount: %v,unMatchCount: %v,matchRate: %.2f,nagaValue: %.3f, BadPlayCount: %v", actor, a[actor].judgeCount, a[actor].matchCount, a[actor].unMatchCount, 100*float32(a[actor].matchCount)/float32(a[actor].judgeCount), nagaValue, a[actor].BadPlayCount)
 	}
 }
 
