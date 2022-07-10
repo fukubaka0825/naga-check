@@ -96,14 +96,15 @@ func main() {
 			action := result[kyokuIndex][actionIndex]
 			actor := action.Info.Msg.Actor
 			if action.Info.Msg.Type == TYPE_TSUMO {
+				actorNagaMap[actor].judgeCount++
 				// 手配交換
 				// playerTehaiMap.changeTehai(actor, action.Info.Msg.Pai, action.Info.Msg.RealDahai)
-				actorNagaMap[actor].judgeCount++
 				// NAG推奨打廃できてない場合は、推奨レート次第で加算ポイントを変える
 				if action.Info.Msg.RealDahai != action.Info.Msg.PredDahai {
 					realDahaiNagaPredRate := action.DahaiPred[realPaiNagaPaiIndexMap[action.Info.Msg.RealDahai]]
 					predDahaiNagaPredRate := action.DahaiPred[realPaiNagaPaiIndexMap[action.Info.Msg.PredDahai]]
-					if !(realDahaiNagaPredRate > 0) || !(predDahaiNagaPredRate > 0) {
+					if predDahaiNagaPredRate == 0 {
+						actorNagaMap[actor].point++
 						continue
 					}
 					if predDahaiNagaPredRate-realDahaiNagaPredRate > BAD_PLAY_THRETHOLD {
