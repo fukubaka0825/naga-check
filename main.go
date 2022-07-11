@@ -225,7 +225,7 @@ func main() {
 			if action.Info.Msg.Type == TYPE_TSUMO || action.Info.Msg.Type == TYPE_PON || action.Info.Msg.Type == TYPE_CHI {
 				if action.Reach != 0 {
 					nextReachRecommend[actor].rate = action.Reach
-					if action.Reach > RECOMMEND_THRETHOLD {
+					if action.Reach >= RECOMMEND_THRETHOLD {
 						nextReachRecommend[actor].nextShouldReach = true
 					}
 				}
@@ -243,7 +243,7 @@ func main() {
 					}
 					actorNagaMap[actor].judgeCount++
 					actorNagaMap[actor].unMatchCount++
-					if predDahaiNagaPredRate-realDahaiNagaPredRate > BAD_PLAY_THRETHOLD {
+					if predDahaiNagaPredRate-realDahaiNagaPredRate >= BAD_PLAY_THRETHOLD {
 						// 悪手を出力してみる
 						if actor == selectActor {
 							log.Printf("!!BADPLAYYYYYY 打牌選択ミス!! actor: %v, bakaze: %v, kyoku: %v,leftHiNum: %v, playerChoice: %v, playerChoicePredRate: %v nagaChoice: %v nagaChoicePredRate: %v", actor, bakaze, kyoku, action.Info.Msg.LeftHaiNum, action.Info.Msg.RealDahai, realDahaiNagaPredRate, action.Info.Msg.PredDahai, predDahaiNagaPredRate)
@@ -269,7 +269,7 @@ func main() {
 						huroRate, huroType := getBiggestFloatAndIndex([]float32{action.Huro[huroAct][1], action.Huro[huroAct][2], action.Huro[huroAct][3], action.Huro[huroAct][4], action.Huro[huroAct][5]})
 						nextHuroRecommend[huroAct].rate = huroRate
 						nextHuroRecommend[huroAct].pattern = strconv.Itoa(huroType)
-						if huroRate > RECOMMEND_THRETHOLD {
+						if huroRate >= RECOMMEND_THRETHOLD {
 							nextHuroRecommend[huroAct].nextShouldHuro = true
 						}
 					}
