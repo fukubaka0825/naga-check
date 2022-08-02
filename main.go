@@ -229,18 +229,16 @@ func main() {
 						nextReachRecommend[actor].nextShouldReach = true
 					}
 				}
-				// 手配交換
-				// playerTehaiMap.changeTehai(actor, action.Info.Msg.Pai, action.Info.Msg.RealDahai)
 				if action.Info.Msg.RealDahai == "" || action.Info.Msg.PredDahai == "" {
+					continue
+				}
+				realDahaiNagaPredRate := action.DahaiPred[realPaiNagaPaiIndexMap[action.Info.Msg.RealDahai]]
+				predDahaiNagaPredRate := action.DahaiPred[realPaiNagaPaiIndexMap[action.Info.Msg.PredDahai]]
+				if realDahaiNagaPredRate == 0 && predDahaiNagaPredRate == 0 {
 					continue
 				}
 				// NAG推奨打廃できてない場合は、推奨レート次第で加算ポイントを変える
 				if action.Info.Msg.RealDahai != action.Info.Msg.PredDahai {
-					realDahaiNagaPredRate := action.DahaiPred[realPaiNagaPaiIndexMap[action.Info.Msg.RealDahai]]
-					predDahaiNagaPredRate := action.DahaiPred[realPaiNagaPaiIndexMap[action.Info.Msg.PredDahai]]
-					if predDahaiNagaPredRate == 0 {
-						continue
-					}
 					actorNagaMap[actor].judgeCount++
 					actorNagaMap[actor].unMatchCount++
 					if predDahaiNagaPredRate-realDahaiNagaPredRate >= BAD_PLAY_THRETHOLD {
@@ -261,7 +259,6 @@ func main() {
 				actorNagaMap[actor].matchCount++
 				actorNagaMap[actor].minusValueList = append(actorNagaMap[actor].minusValueList, 0)
 				actorNagaMap[actor].judgeCount++
-
 			}
 			if action.Info.Msg.Type == TYPE_DAHAI {
 				if action.Huro != nil {
